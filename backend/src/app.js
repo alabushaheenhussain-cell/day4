@@ -35,6 +35,7 @@ const swaggerHtml = `<!doctype html>
 app.get('/swagger.json', (_req, res) => res.json(spec));
 app.get(['/swagger', '/swagger/'], (_req, res) => res.type('html').send(swaggerHtml));
 app.get('/', (_req, res) => res.redirect('/swagger'));
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 // Create the table once per instance, lazily (serverless has no startup hook)
 let ready;
