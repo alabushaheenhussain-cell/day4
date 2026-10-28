@@ -3,6 +3,7 @@ import pg from 'pg';
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }, // required by Render-hosted PostgreSQL
+  max: 3, // keep the pool small: each serverless instance holds its own
 });
 
 export async function initDb() {
