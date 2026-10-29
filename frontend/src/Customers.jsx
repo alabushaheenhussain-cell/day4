@@ -10,6 +10,7 @@ export default function Customers() {
   const [query, setQuery] = useState('');
   const [form, setForm] = useState(null); // null = closed; object = open (with id when editing)
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -40,6 +41,22 @@ export default function Customers() {
     finally { setSaving(false); }
   };
 
+  // Exports what the table shows: the server applies the same search to name, email, phone and address
+  const exportXlsx = async () => {
+    setExporting(true);
+    setError('');
+    try {
+      const { blob, filename } = await api.exportCustomers(query.trim());
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { setError(e.message); }
+    finally { setExporting(false); }
+  };
+
   const remove = async (c) => {
     if (!window.confirm(`Delete ${c.name}?`)) return;
     try { await api.remove(c.id); await load(); }
@@ -60,6 +77,9 @@ export default function Customers() {
             className="search" placeholder="Search customers…"
             value={query} onChange={(e) => setQuery(e.target.value)}
           />
+          <button className="btn" onClick={exportXlsx} disabled={exporting || filtered.length === 0}>
+            {exporting ? 'Exporting…' : 'Export to Excel'}
+          </button>
           <button className="btn primary" onClick={() => setForm({ ...empty })}>+ Add customer</button>
         </div>
       </div>

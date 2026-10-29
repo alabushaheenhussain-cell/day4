@@ -5,13 +5,15 @@ import spec from './swagger.js';
 import { initDb } from './db.js';
 import * as db from './customers.js';
 import { runAgent } from './agent.js';
+import { customersToXlsx } from './export.js';
 import * as users from './users.js';
 import { hashPassword, verifyPassword, signToken, requireAuth, requireAdmin, requireSales } from './auth.js';
 
 const app = express();
 // Allow cross-origin requests from the frontend (comma-separated list, or * for all)
 const origins = (process.env.CORS_ORIGIN || '*').split(',').map((s) => s.trim());
-app.use(cors({ origin: origins.includes('*') ? true : origins }));
+// Content-Disposition is exposed so the frontend can read the export filename cross-origin
+app.use(cors({ origin: origins.includes('*') ? true : origins, exposedHeaders: ['Content-Disposition'] }));
 app.use(express.json());
 
 // Swagger UI is loaded from a CDN so no static asset files need to ship with the
@@ -101,6 +103,17 @@ app.get('/customers', wrap(async (req, res) =>
   res.json(req.query.name
     ? await db.searchByName(req.user.id, String(req.query.name))
     : await db.listCustomers(req.user.id))));
+
+// Must be registered before '/customers/:id', or "export" would be read as an id
+app.get('/customers/export', wrap(async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const rows = q ? await db.searchCustomers(req.user.id, q) : await db.listCustomers(req.user.id);
+  res.set({
+    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'Content-Disposition': `attachment; filename="customers-${new Date().toISOString().slice(0, 10)}.xlsx"`,
+  });
+  res.send(await customersToXlsx(rows));
+}));
 
 app.post('/customers', wrap(async (req, res) => {
   if (!req.body?.name?.trim()) return res.status(400).json({ error: 'name is required' });

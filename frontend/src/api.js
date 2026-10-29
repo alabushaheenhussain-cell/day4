@@ -26,7 +26,23 @@ async function request(path, options = {}) {
   return data;
 }
 
+// Fetches the Excel export with the token (a plain link can't send the Authorization header)
+async function exportCustomers(q) {
+  const token = getToken();
+  const res = await fetch(`${BASE}/customers/export${q ? `?q=${encodeURIComponent(q)}` : ''}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    if (res.status === 401) { setToken(null); onUnauthorized(); }
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
+  const match = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '');
+  return { blob: await res.blob(), filename: match ? match[1] : 'customers.xlsx' };
+}
+
 export const api = {
+  exportCustomers,
   register: (u) => request('/auth/register', { method: 'POST', body: JSON.stringify(u) }),
   login: (u) => request('/auth/login', { method: 'POST', body: JSON.stringify(u) }),
   adminLogin: (u) => request('/auth/admin/login', { method: 'POST', body: JSON.stringify(u) }),
