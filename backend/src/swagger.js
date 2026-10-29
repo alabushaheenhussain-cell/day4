@@ -30,7 +30,7 @@ const credentials = (required, extra = {}) => ({
 
 const dealInputProps = {
   title: { type: 'string', maxLength: 200, example: 'Brochure printing – Q4' },
-  amount: { type: 'number', minimum: 0, example: 150000, description: 'In rupees, at most 2 decimals' },
+  amount: { type: 'number', minimum: 0, example: 150000, description: 'In Saudi riyals (SAR), at most 2 decimals' },
   stage: { type: 'string', enum: ['lead', 'qualified', 'proposal', 'won', 'lost'], default: 'lead' },
   expected_close_date: { type: 'string', format: 'date', nullable: true, example: '2026-11-30', description: 'On update, null clears it' },
 };

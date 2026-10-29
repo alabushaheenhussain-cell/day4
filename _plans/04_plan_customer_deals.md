@@ -39,7 +39,7 @@ Precondition: the working tree is committed (spec 04 is currently untracked, so 
 
 No test runner, so verify manually (backend `npm start`, restart after changes; `npm run dev` in `frontend/`). Create test users with a `zz` email prefix and delete them and their customers (cascading to deals) afterwards.
 
-- Criterion 1 and 2: create the "Brochure printing – Q4" deal (150000, `lead`, 2026-11-30) via curl and the UI; response `amount` is a number, date is `2026-11-30` (no time zone shift); UI shows `₹1,50,000`; several deals on one customer are listed newest first.
+- Criterion 1 and 2: create the "Brochure printing – Q4" deal (150000, `lead`, 2026-11-30) via curl and the UI; response `amount` is a number, date is `2026-11-30` (no time zone shift); UI shows `ر.س 150,000`; several deals on one customer are listed newest first.
 - Criterion 3 and 4: move through all stages and to `lost` from any stage; invalid stage, empty title, 201-char title, negative amount, 3 decimals, `2026-02-30`, non-numeric id all return `400` and create nothing.
 - Criterion 5: two sales users; the second gets `404` on list/get/put/delete of the first's deals and on `POST /customers/<other's id>/deals`, and `GET /deals` never returns the first's rows. A body containing `customer_id` / `sales_user_id` on `PUT` changes nothing.
 - Criterion 6: `401` with no token and `403` with the admin token on every deal endpoint.

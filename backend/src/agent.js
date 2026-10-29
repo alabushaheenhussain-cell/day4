@@ -7,7 +7,7 @@ const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
 
 const dealProps = {
   title: { type: 'string' },
-  amount: { type: 'number', description: 'Amount in rupees' },
+  amount: { type: 'number', description: 'Amount in Saudi riyals (SAR)' },
   stage: { type: 'string', enum: STAGES },
   expected_close_date: { type: 'string', description: 'YYYY-MM-DD' },
 };
@@ -67,7 +67,7 @@ const tools = [
   },
   {
     name: 'create_deal',
-    description: 'Create a deal for one of the customers. Amount is in rupees; stage defaults to lead.',
+    description: 'Create a deal for one of the customers. Amount is in Saudi riyals (SAR); stage defaults to lead.',
     input_schema: { type: 'object', properties: { customer_id: { type: 'integer' }, ...dealProps }, required: ['customer_id', 'title'] },
   },
   {
@@ -107,7 +107,7 @@ const makeHandlers = (userId) => ({
 const SYSTEM = `You are a customer-management assistant. Use the provided tools to read and modify
 customer data in the database; never invent data. You can only see and change the customers
 assigned to the logged-in user; treat any other customer as nonexistent. You also manage deals
-(sales opportunities with a customer): amounts are in rupees and the stages are lead, qualified,
+(sales opportunities with a customer): amounts are in Saudi riyals (SAR) and the stages are lead, qualified,
 proposal, won, lost. Be concise and format lists clearly.`;
 
 export async function runAgent(message, history = [], userId) {

@@ -7,7 +7,7 @@ Status: Draft, awaiting approval (see section 11 for open questions). Plan: `_pl
 A customer is a company or person a sales user deals with. A **deal** is a specific sales opportunity with that customer. Example: Sunrise Hospital wants 5,000 printed brochures, so Priya (a sales user) creates a deal:
 
 - Title: "Brochure printing – Q4"
-- Amount: ₹1,50,000
+- Amount: ر.س 150,000
 - Stage: Lead → Qualified → Proposal → Won / Lost
 - Expected close date: 30 Nov
 
@@ -25,7 +25,7 @@ One customer can have many deals over time: brochures this month, ID cards next 
 ## 3. Non-goals
 
 - Pipeline/kanban board, forecasting, charts or revenue reports.
-- Multiple currencies or currency conversion (amounts are in INR, see section 5).
+- Multiple currencies or currency conversion (amounts are in SAR, see section 5).
 - Line items, products, quotes, invoices, or file attachments on a deal.
 - Stage history/audit trail, notes or activity log per deal.
 - Reassigning a deal to another customer or another user.
@@ -42,7 +42,7 @@ New table `deal`, created lazily by `initDb()` like `customer`:
 | `customer_id` | integer, not null, FK to `customer(id)` `ON DELETE CASCADE` | deleting a customer deletes its deals |
 | `sales_user_id` | integer, not null, FK to `app_user(id)` | owner; always equal to the owning customer's `sales_user_id` |
 | `title` | text, not null | non-empty after trim, max 200 chars |
-| `amount` | numeric(14,2), not null, default 0 | `>= 0`, in INR; returned to clients as a JSON number |
+| `amount` | numeric(14,2), not null, default 0 | `>= 0`, in SAR; returned to clients as a JSON number |
 | `stage` | text, not null, default `lead` | one of `lead`, `qualified`, `proposal`, `won`, `lost` (CHECK constraint) |
 | `expected_close_date` | date, null | optional; plain date, no time zone |
 | `created_at` | timestamptz, default now() | |
@@ -54,7 +54,7 @@ Index on `(sales_user_id, customer_id)`.
 
 ## 5. Amount and currency
 
-Amounts are stored in rupees as `numeric(14,2)` and sent in the API as numbers (e.g. `150000`), never as formatted strings. The UI formats with the Indian digit grouping, `₹1,50,000` (`toLocaleString('en-IN')`). Only INR is supported; there is no currency column.
+Amounts are stored in Saudi riyals as `numeric(14,2)` and sent in the API as numbers (e.g. `150000`), never as formatted strings. The UI shows the Arabic riyal abbreviation before the amount, `ر.س 150,000` (`toLocaleString('en-US')`). Only SAR is supported; there is no currency column.
 
 ## 6. Stages
 
@@ -110,11 +110,11 @@ Routing: `GET /deals` and `/deals/:id` are separate from `/customers/:id`, so th
 - `update_deal` (`id`, and any fields; used to move the stage)
 - `delete_deal` (`id`)
 
-Both `tools` and `makeHandlers` are updated together. The system prompt mentions deals and that amounts are in rupees. The iteration cap (8) is unchanged.
+Both `tools` and `makeHandlers` are updated together. The system prompt mentions deals and that amounts are in Saudi riyals. The iteration cap (8) is unchanged.
 
 ## 10. Frontend
 
-- On each customer in `Customers.jsx`, a **Deals** section (expandable) lists that customer's deals with title, amount (`₹1,50,000`), stage badge and expected close date, plus the count and total open amount.
+- On each customer in `Customers.jsx`, a **Deals** section (expandable) lists that customer's deals with title, amount (`ر.س 150,000`), stage badge and expected close date, plus the count and total open amount.
 - An **Add deal** form: title, amount, stage (dropdown, default Lead), expected close date (date input). Deals can be edited inline and deleted with a confirmation. The stage can be changed directly from a dropdown on the deal row.
 - Won deals are visually distinct from open ones, and Lost deals are muted.
 - `api.js` gets `listDeals(customerId)`, `createDeal`, `updateDeal`, `deleteDeal`, reusing the token and 401 handling.
@@ -129,7 +129,7 @@ Both `tools` and `makeHandlers` are updated together. The system prompt mentions
 
 ## 12. Acceptance criteria
 
-1. A sales user can create a deal on their own customer with title "Brochure printing – Q4", amount 150000, stage `lead`, close date 2026-11-30 and get it back with those values; the UI shows `₹1,50,000`.
+1. A sales user can create a deal on their own customer with title "Brochure printing – Q4", amount 150000, stage `lead`, close date 2026-11-30 and get it back with those values; the UI shows `ر.س 150,000`.
 2. One customer can have several deals; `GET /customers/:id/deals` returns all of them, newest first.
 3. A deal can be moved Lead → Qualified → Proposal → Won, and to Lost from any stage; an invalid stage returns `400`.
 4. Invalid input (empty title, negative amount, bad date, over-long title) returns `400` and creates nothing.
