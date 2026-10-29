@@ -13,3 +13,10 @@ export const findByEmail = async (email) =>
 
 export const findById = async (id) =>
   (await pool.query(`SELECT ${PUBLIC} FROM app_user WHERE id = $1`, [id])).rows[0];
+
+// One query for all users; users without customers get 0
+export const listUsersWithCustomerCounts = async () =>
+  (await pool.query(
+    `SELECT u.id, u.name, u.email, u.role, u.created_at, COUNT(c.id)::int AS customer_count
+     FROM app_user u LEFT JOIN customer c ON c.sales_user_id = u.id
+     GROUP BY u.id ORDER BY u.created_at, u.id`)).rows;

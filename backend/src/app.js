@@ -6,7 +6,7 @@ import { initDb } from './db.js';
 import * as db from './customers.js';
 import { runAgent } from './agent.js';
 import * as users from './users.js';
-import { hashPassword, verifyPassword, signToken, requireAuth } from './auth.js';
+import { hashPassword, verifyPassword, signToken, requireAuth, requireAdmin, requireSales } from './auth.js';
 
 const app = express();
 // Allow cross-origin requests from the frontend (comma-separated list, or * for all)
@@ -73,21 +73,29 @@ app.post('/auth/register', wrap(async (req, res) => {
   }
 }));
 
-app.post('/auth/login', wrap(async (req, res) => {
+// Both logins share this; a wrong role gets the same generic 401 as a wrong password,
+// so the response doesn't reveal which kind of account exists.
+const loginAs = (role) => wrap(async (req, res) => {
   const email = str(req.body?.email).toLowerCase();
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
   const user = email && password ? await users.findByEmail(email) : undefined;
-  if (!user || !(await verifyPassword(password, user.password_hash))) {
+  if (!user || user.role !== role || !(await verifyPassword(password, user.password_hash))) {
     return res.status(401).json({ error: 'Invalid email or password' });
   }
   const { password_hash, ...safe } = user;
   res.json({ token: signToken(safe), user: safe });
-}));
+});
+
+app.post('/auth/login', loginAs('sales'));
+app.post('/auth/admin/login', loginAs('admin'));
 
 app.get('/auth/me', requireAuth, (req, res) => res.json(req.user));
 
-// Everything below requires a logged-in user; data access is scoped to req.user.id
-app.use(['/customers', '/agent'], requireAuth);
+app.get('/admin/users', requireAuth, requireAdmin, wrap(async (_req, res) =>
+  res.json(await users.listUsersWithCustomerCounts())));
+
+// Everything below requires a logged-in sales user; data access is scoped to req.user.id
+app.use(['/customers', '/agent'], requireAuth, requireSales);
 
 app.get('/customers', wrap(async (req, res) =>
   res.json(req.query.name
