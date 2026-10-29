@@ -117,6 +117,20 @@ export default {
         responses: { 401: unauthorized, 403: forbidden, 201: { description: 'Created', content: json(ref) }, 400: { description: 'Invalid input' } },
       },
     },
+    '/customers/export': {
+      get: {
+        tags: ['Customers'], summary: 'Export your customers to an Excel (.xlsx) file', security: secured,
+        description: 'Only customers owned by the logged-in user. Optional q filters by name, email, phone or address (case-insensitive substring).',
+        parameters: [{ name: 'q', in: 'query', schema: { type: 'string' } }],
+        responses: {
+          401: unauthorized, 403: forbidden,
+          200: {
+            description: 'The .xlsx file (header row only if there are no matching customers)',
+            content: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { schema: { type: 'string', format: 'binary' } } },
+          },
+        },
+      },
+    },
     '/customers/{id}': {
       get: { tags: ['Customers'], summary: 'Get a customer', security: secured, parameters: [idParam], responses: { 401: unauthorized, 403: forbidden, 200: { description: 'OK', content: json(ref) }, 404: notFound } },
       put: { tags: ['Customers'], summary: 'Update a customer', security: secured, parameters: [idParam], requestBody: body([]), responses: { 401: unauthorized, 403: forbidden, 200: { description: 'OK', content: json(ref) }, 404: notFound } },

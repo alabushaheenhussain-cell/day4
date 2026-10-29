@@ -9,7 +9,15 @@ export const searchByName = async (userId, name) =>
     'SELECT * FROM customer WHERE sales_user_id = $1 AND name ILIKE $2 ORDER BY id',
     [userId, `%${name}%`])).rows;
 
-export const getCustomer = async (userId, id) =>
+// Same rule as the Customers screen search: substring of name, email, phone or address.
+// \, % and _ are escaped so they match literally.
+export const searchCustomers = async (userId, q) =>
+  (await pool.query(
+    `SELECT * FROM customer WHERE sales_user_id = $1
+       AND (name ILIKE $2 OR email ILIKE $2 OR phone ILIKE $2 OR address ILIKE $2) ORDER BY id`,
+    [userId, `%${q.replace(/[\\%_]/g, '\\$&')}%`])).rows;
+
+export const getCustomer =async (userId, id) =>
   (await pool.query('SELECT * FROM customer WHERE id = $1 AND sales_user_id = $2', [id, userId])).rows[0];
 
 export const createCustomer = async (userId, { name, email = null, phone = null, address = null }) =>
