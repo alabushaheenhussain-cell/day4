@@ -11,41 +11,95 @@ const body = (required) => ({
   required: true,
   content: json({ type: 'object', required, properties: customerProps }),
 });
-const notFound = { description: 'Customer not found' };
+const notFound = { description: 'Customer not found, or it belongs to another user' };
+const unauthorized = { description: 'Missing, invalid or expired token' };
+const secured = [{ bearerAuth: [] }];
+const userRef = { $ref: '#/components/schemas/User' };
+const credentials = (required, extra = {}) => ({
+  required: true,
+  content: json({
+    type: 'object', required,
+    properties: {
+      ...extra,
+      email: { type: 'string', example: 'sam@example.com' },
+      password: { type: 'string', format: 'password', example: 'secret123' },
+    },
+  }),
+});
 
 export default {
   openapi: '3.0.3',
-  info: { title: 'Customer API', version: '1.0.0', description: 'CRUD for customers plus an AI agent endpoint.' },
-  tags: [{ name: 'Customers' }, { name: 'Agent' }],
+  info: { title: 'Customer API', version: '1.0.0', description: 'Registration and login, plus per-user customer CRUD and an AI agent. Customers are only visible to the sales user that owns them: register, log in, then use the Authorize button with the returned token.' },
+  tags: [{ name: 'Auth' }, { name: 'Customers' }, { name: 'Agent' }],
   components: {
+    securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
     schemas: {
+      User: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 1 }, name: { type: 'string', example: 'Sam Sales' },
+          email: { type: 'string', example: 'sam@example.com' },
+          role: { type: 'string', example: 'sales', description: "Always 'sales' for new registrations" },
+          created_at: { type: 'string', format: 'date-time' },
+        },
+      },
+      AuthResponse: {
+        type: 'object',
+        properties: { token: { type: 'string', description: 'JWT to send as "Authorization: Bearer <token>"' }, user: userRef },
+      },
       Customer: {
         type: 'object',
-        properties: { id: { type: 'integer', example: 1 }, ...customerProps, created_at: { type: 'string', format: 'date-time' } },
+        properties: { id: { type: 'integer', example: 1 }, ...customerProps, sales_user_id: { type: 'integer', example: 1, description: 'Owning sales user (set from the token)' }, created_at: { type: 'string', format: 'date-time' } },
       },
     },
   },
   paths: {
+    '/auth/register': {
+      post: {
+        tags: ['Auth'], summary: 'Register a new user (role: sales)',
+        requestBody: credentials(['name', 'email', 'password'], { name: { type: 'string', example: 'Sam Sales' } }),
+        responses: {
+          201: { description: 'Created', content: json(userRef) },
+          400: { description: 'Missing name, malformed email or password under 8 characters' },
+          409: { description: 'Email already registered' },
+        },
+      },
+    },
+    '/auth/login': {
+      post: {
+        tags: ['Auth'], summary: 'Log in and get a token', requestBody: credentials(['email', 'password']),
+        responses: {
+          200: { description: 'OK', content: json({ $ref: '#/components/schemas/AuthResponse' }) },
+          401: { description: 'Invalid email or password' },
+        },
+      },
+    },
+    '/auth/me': {
+      get: {
+        tags: ['Auth'], summary: 'Current user', security: secured,
+        responses: { 401: unauthorized, 200: { description: 'OK', content: json(userRef) }, 401: unauthorized },
+      },
+    },
     '/customers': {
       get: {
-        tags: ['Customers'], summary: 'List customers (optional name filter)',
+        tags: ['Customers'], summary: 'List customers (optional name filter)', security: secured,
         parameters: [{ name: 'name', in: 'query', schema: { type: 'string' } }],
-        responses: { 200: { description: 'OK', content: json({ type: 'array', items: ref }) } },
+        responses: { 401: unauthorized, 200: { description: 'OK', content: json({ type: 'array', items: ref }) } },
       },
       post: {
-        tags: ['Customers'], summary: 'Create a customer', requestBody: body(['name']),
-        responses: { 201: { description: 'Created', content: json(ref) }, 400: { description: 'Invalid input' } },
+        tags: ['Customers'], summary: 'Create a customer', security: secured, requestBody: body(['name']),
+        responses: { 401: unauthorized, 201: { description: 'Created', content: json(ref) }, 400: { description: 'Invalid input' } },
       },
     },
     '/customers/{id}': {
-      get: { tags: ['Customers'], summary: 'Get a customer', parameters: [idParam], responses: { 200: { description: 'OK', content: json(ref) }, 404: notFound } },
-      put: { tags: ['Customers'], summary: 'Update a customer', parameters: [idParam], requestBody: body([]), responses: { 200: { description: 'OK', content: json(ref) }, 404: notFound } },
-      delete: { tags: ['Customers'], summary: 'Delete a customer', parameters: [idParam], responses: { 200: { description: 'Deleted' }, 404: notFound } },
+      get: { tags: ['Customers'], summary: 'Get a customer', security: secured, parameters: [idParam], responses: { 401: unauthorized, 200: { description: 'OK', content: json(ref) }, 404: notFound } },
+      put: { tags: ['Customers'], summary: 'Update a customer', security: secured, parameters: [idParam], requestBody: body([]), responses: { 401: unauthorized, 200: { description: 'OK', content: json(ref) }, 404: notFound } },
+      delete: { tags: ['Customers'], summary: 'Delete a customer', security: secured, parameters: [idParam], responses: { 401: unauthorized, 200: { description: 'Deleted' }, 404: notFound } },
     },
     '/agent': {
       post: {
-        tags: ['Agent'], summary: 'Ask a natural-language question about customers',
-        description: 'Claude uses tools (list, find by name, add, update, delete) against the database.',
+        tags: ['Agent'], summary: 'Ask a natural-language question about customers', security: secured,
+        description: 'Claude uses tools (list, find by name, add, update, delete) against the database, limited to the logged-in user customers.',
         requestBody: {
           required: true,
           content: json({
@@ -56,7 +110,7 @@ export default {
             },
           }),
         },
-        responses: { 200: { description: 'Agent reply with tool calls made' }, 503: { description: 'API key not configured' } },
+        responses: { 401: unauthorized, 200: { description: 'Agent reply with tool calls made' }, 503: { description: 'API key not configured' } },
       },
     },
   },

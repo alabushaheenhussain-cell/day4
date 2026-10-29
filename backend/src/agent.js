@@ -50,24 +50,27 @@ const tools = [
   },
 ];
 
-const handlers = {
-  get_all_customers: () => db.listCustomers(),
-  get_customer_by_name: ({ name }) => db.searchByName(name),
-  get_customer_by_id: async ({ id }) => (await db.getCustomer(id)) ?? { error: 'Customer not found' },
-  add_customer: (a) => db.createCustomer(a),
-  update_customer: async ({ id, ...rest }) => (await db.updateCustomer(id, rest)) ?? { error: 'Customer not found' },
-  delete_customer: async ({ id }) => (await db.deleteCustomer(id)) ?? { error: 'Customer not found' },
-};
+// Handlers are bound to the authenticated user; the model never supplies a user id.
+const makeHandlers = (userId) => ({
+  get_all_customers: () => db.listCustomers(userId),
+  get_customer_by_name: ({ name }) => db.searchByName(userId, name),
+  get_customer_by_id: async ({ id }) => (await db.getCustomer(userId, id)) ?? { error: 'Customer not found' },
+  add_customer: (a) => db.createCustomer(userId, a),
+  update_customer: async ({ id, ...rest }) => (await db.updateCustomer(userId, id, rest)) ?? { error: 'Customer not found' },
+  delete_customer: async ({ id }) => (await db.deleteCustomer(userId, id)) ?? { error: 'Customer not found' },
+});
 
 const SYSTEM = `You are a customer-management assistant. Use the provided tools to read and modify
-customer data in the database; never invent data. Be concise and format lists clearly.`;
+customer data in the database; never invent data. You can only see and change the customers
+assigned to the logged-in user; treat any other customer as nonexistent. Be concise and format lists clearly.`;
 
-export async function runAgent(message, history = []) {
+export async function runAgent(message, history = [], userId) {
   if (!process.env.ANTHROPIC_API_KEY) {
     const err = new Error('ANTHROPIC_API_KEY is not set on the server');
     err.status = 503;
     throw err;
   }
+  const handlers = makeHandlers(userId);
   const client = new Anthropic();
   const messages = [...history, { role: 'user', content: message }];
   const toolCalls = [];
