@@ -32,6 +32,8 @@ Create **two** Vercel projects from this repo.
 | `ANTHROPIC_MODEL` | optional, defaults to `claude-sonnet-5-5` |
 | `JWT_SECRET` | long random string used to sign login tokens (required) |
 | `JWT_EXPIRES_IN` | optional, token lifetime, defaults to `1d` |
+| `ADMIN_EMAIL` | optional, seeded admin login, defaults to `admin@admin.com` |
+| `ADMIN_PASSWORD` | optional, seeded admin password, defaults to `123456789`. Set your own in production; it is only used when the admin account is first created |
 | `CORS_ORIGIN` | frontend URL, e.g. `https://your-frontend.vercel.app` (comma-separate several) |
 
 Verify: `<backend-url>/swagger`, `<backend-url>/health`, `<backend-url>/customers`.
