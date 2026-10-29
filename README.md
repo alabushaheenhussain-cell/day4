@@ -17,6 +17,7 @@ cd frontend && cp .env.example .env && npm install && npm run dev
 - Swagger UI: http://localhost:4000/swagger (spec at `/swagger.json`)
 - Health check: http://localhost:4000/health
 - `POST /agent` needs `ANTHROPIC_API_KEY` set.
+- All `/customers` and `/agent` calls need a login token: `POST /auth/register`, `POST /auth/login`, then use the Swagger "Authorize" button. Customers are visible only to the user that owns them.
 
 ## Deploy to Vercel
 
@@ -29,6 +30,8 @@ Create **two** Vercel projects from this repo.
 | `DATABASE_URL` | PostgreSQL connection string |
 | `ANTHROPIC_API_KEY` | your Anthropic key |
 | `ANTHROPIC_MODEL` | optional, defaults to `claude-sonnet-5-5` |
+| `JWT_SECRET` | long random string used to sign login tokens (required) |
+| `JWT_EXPIRES_IN` | optional, token lifetime, defaults to `1d` |
 | `CORS_ORIGIN` | frontend URL, e.g. `https://your-frontend.vercel.app` (comma-separate several) |
 
 Verify: `<backend-url>/swagger`, `<backend-url>/health`, `<backend-url>/customers`.

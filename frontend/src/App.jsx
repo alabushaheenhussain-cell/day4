@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api, getToken, setToken, setUnauthorizedHandler } from './api.js';
+import Auth from './Auth.jsx';
 import Customers from './Customers.jsx';
 import Chat from './Chat.jsx';
 
@@ -6,6 +8,20 @@ export default function App() {
   const [tab, setTab] = useState('customers');
   // Bumped after the chat agent runs so the customer table refreshes
   const [version, setVersion] = useState(0);
+  const [user, setUser] = useState(null);
+  const [checking, setChecking] = useState(!!getToken()); // restoring a saved session
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => setUser(null));
+    if (getToken()) {
+      api.me().then(setUser).catch(() => setToken(null)).finally(() => setChecking(false));
+    }
+  }, []);
+
+  const logout = () => { setToken(null); setUser(null); setTab('customers'); };
+
+  if (checking) return null;
+  if (!user) return <Auth onLogin={setUser} />;
 
   return (
     <div className="app">
@@ -22,6 +38,10 @@ export default function App() {
             AI Assistant
           </button>
         </nav>
+        <div className="userbox">
+          <span className="muted">{user.name}</span>
+          <button className="btn small" onClick={logout}>Log out</button>
+        </div>
       </header>
       <main className="content">
         {tab === 'customers' ? (
