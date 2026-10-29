@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { api } from './api.js';
+import Deals from './Deals.jsx';
 
 const empty = { name: '', email: '', phone: '', address: '' };
 
@@ -11,6 +12,7 @@ export default function Customers() {
   const [form, setForm] = useState(null); // null = closed; object = open (with id when editing)
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [dealsOpen, setDealsOpen] = useState(null); // id of the customer whose deals are expanded
 
   const load = async () => {
     setLoading(true);
@@ -58,7 +60,7 @@ export default function Customers() {
   };
 
   const remove = async (c) => {
-    if (!window.confirm(`Delete ${c.name}?`)) return;
+    if (!window.confirm(`Delete ${c.name} and all their deals?`)) return;
     try { await api.remove(c.id); await load(); }
     catch (e) { setError(e.message); }
   };
@@ -97,17 +99,25 @@ export default function Customers() {
               <tr><td colSpan="6" className="empty">No customers found.</td></tr>
             )}
             {filtered.map((c) => (
-              <tr key={c.id}>
-                <td className="muted">#{c.id}</td>
-                <td className="strong">{c.name}</td>
-                <td>{c.email || '—'}</td>
-                <td>{c.phone || '—'}</td>
-                <td>{c.address || '—'}</td>
-                <td className="row-actions">
-                  <button className="btn small" onClick={() => setForm({ ...c, email: c.email ?? '', phone: c.phone ?? '', address: c.address ?? '' })}>Edit</button>
-                  <button className="btn small danger" onClick={() => remove(c)}>Delete</button>
-                </td>
-              </tr>
+              <Fragment key={c.id}>
+                <tr>
+                  <td className="muted">#{c.id}</td>
+                  <td className="strong">{c.name}</td>
+                  <td>{c.email || '—'}</td>
+                  <td>{c.phone || '—'}</td>
+                  <td>{c.address || '—'}</td>
+                  <td className="row-actions">
+                    <button className="btn small" onClick={() => setDealsOpen(dealsOpen === c.id ? null : c.id)}>
+                      Deals {dealsOpen === c.id ? '▴' : '▾'}
+                    </button>
+                    <button className="btn small" onClick={() => setForm({ ...c, email: c.email ?? '', phone: c.phone ?? '', address: c.address ?? '' })}>Edit</button>
+                    <button className="btn small danger" onClick={() => remove(c)}>Delete</button>
+                  </td>
+                </tr>
+                {dealsOpen === c.id && (
+                  <tr><td colSpan="6" className="deals-cell"><Deals customer={c} /></td></tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
