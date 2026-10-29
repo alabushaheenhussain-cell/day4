@@ -3,7 +3,8 @@ import { api } from './api.js';
 
 const STAGES = ['lead', 'qualified', 'proposal', 'won', 'lost'];
 const label = (s) => s[0].toUpperCase() + s.slice(1);
-const rupees = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
+// Saudi riyal: Arabic abbreviation as the symbol (renders in every font), then the amount
+const money = (n) => `ر.س ${Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 const empty = { title: '', amount: '', stage: 'lead', expected_close_date: '' };
 
 export default function Deals({ customer }) {
@@ -61,7 +62,7 @@ export default function Deals({ customer }) {
     <div>
       <div className="deals-head">
         <p className="muted">
-          {deals.length} {deals.length === 1 ? 'deal' : 'deals'} · {rupees(openTotal)} open
+          {deals.length} {deals.length === 1 ? 'deal' : 'deals'} · {money(openTotal)} open
         </p>
         <button className="btn small primary" onClick={() => setForm({ ...empty })}>+ Add deal</button>
       </div>
@@ -78,7 +79,7 @@ export default function Deals({ customer }) {
           {deals.map((d) => (
             <tr key={d.id} className={`deal-${d.stage}`}>
               <td className="strong">{d.title}</td>
-              <td>{rupees(d.amount)}</td>
+              <td>{money(d.amount)}</td>
               <td>
                 <select className="stage-select" value={d.stage} onChange={(e) => changeStage(d, e.target.value)}>
                   {STAGES.map((s) => <option key={s} value={s}>{label(s)}</option>)}
@@ -99,7 +100,7 @@ export default function Deals({ customer }) {
           <form className="modal" onSubmit={save}>
             <h3>{form.id ? 'Edit deal' : `Add deal for ${customer.name}`}</h3>
             <label>Title *<input required maxLength="200" value={form.title} onChange={set('title')} autoFocus /></label>
-            <label>Amount (₹)<input type="number" min="0" step="0.01" value={form.amount} onChange={set('amount')} /></label>
+            <label>Amount (ر.س)<input type="number" min="0" step="0.01" value={form.amount} onChange={set('amount')} /></label>
             <label>Stage
               <select value={form.stage} onChange={set('stage')}>
                 {STAGES.map((s) => <option key={s} value={s}>{label(s)}</option>)}
