@@ -4,6 +4,7 @@ import cors from 'cors';
 import spec from './swagger.js';
 import { initDb } from './db.js';
 import * as db from './customers.js';
+import * as deals from './deals.js';
 import { runAgent } from './agent.js';
 import { customersToXlsx } from './export.js';
 import * as users from './users.js';
@@ -97,7 +98,7 @@ app.get('/admin/users', requireAuth, requireAdmin, wrap(async (_req, res) =>
   res.json(await users.listUsersWithCustomerCounts())));
 
 // Everything below requires a logged-in sales user; data access is scoped to req.user.id
-app.use(['/customers', '/agent'], requireAuth, requireSales);
+app.use(['/customers', '/deals', '/agent'], requireAuth, requireSales);
 
 app.get('/customers', wrap(async (req, res) =>
   res.json(req.query.name
@@ -136,6 +137,46 @@ app.delete('/customers/:id', wrap(async (req, res) => {
   const id = validId(req, res); if (id === null) return;
   const c = await db.deleteCustomer(req.user.id, id);
   c ? res.json({ deleted: c }) : res.status(404).json({ error: 'Customer not found' });
+}));
+
+app.get('/customers/:id/deals', wrap(async (req, res) => {
+  const id = validId(req, res); if (id === null) return;
+  if (!(await db.getCustomer(req.user.id, id))) return res.status(404).json({ error: 'Customer not found' });
+  res.json(await deals.listDealsForCustomer(req.user.id, id));
+}));
+
+app.post('/customers/:id/deals', wrap(async (req, res) => {
+  const id = validId(req, res); if (id === null) return;
+  const { value, error } = deals.validateDeal(req.body);
+  if (error) return res.status(400).json({ error });
+  const d = await deals.createDeal(req.user.id, id, value);
+  d ? res.status(201).json(d) : res.status(404).json({ error: 'Customer not found' });
+}));
+
+app.get('/deals', wrap(async (req, res) => {
+  const { stage, customer_id } = req.query;
+  if (stage !== undefined && !deals.STAGES.includes(stage)) return res.status(400).json({ error: 'Invalid stage' });
+  if (customer_id !== undefined && !/^\d+$/.test(customer_id)) return res.status(400).json({ error: 'Invalid customer_id' });
+  res.json(await deals.listDeals(req.user.id, { stage, customerId: customer_id === undefined ? null : Number(customer_id) }));
+}));
+
+app.get('/deals/:id', wrap(async (req, res) => {
+  const id = validId(req, res); if (id === null) return;
+  const d = await deals.getDeal(req.user.id, id);
+  d ? res.json(d) : res.status(404).json({ error: 'Deal not found' });
+}));
+
+app.put('/deals/:id', wrap(async (req, res) => {
+  const id = validId(req, res); if (id === null) return;
+  const { value, error } = deals.validateDeal(req.body, { partial: true });
+  if (error) return res.status(400).json({ error });
+  const d = await deals.updateDeal(req.user.id, id, value);
+  d ? res.json(d) : res.status(404).json({ error: 'Deal not found' });
+}));
+
+app.delete('/deals/:id', wrap(async (req, res) => {
+  const id = validId(req, res); if (id === null) return;
+  (await deals.deleteDeal(req.user.id, id)) ? res.status(204).end() : res.status(404).json({ error: 'Deal not found' });
 }));
 
 app.post('/agent', wrap(async (req, res) => {

@@ -28,10 +28,24 @@ const credentials = (required, extra = {}) => ({
   }),
 });
 
+const dealInputProps = {
+  title: { type: 'string', maxLength: 200, example: 'Brochure printing – Q4' },
+  amount: { type: 'number', minimum: 0, example: 150000, description: 'In rupees, at most 2 decimals' },
+  stage: { type: 'string', enum: ['lead', 'qualified', 'proposal', 'won', 'lost'], default: 'lead' },
+  expected_close_date: { type: 'string', format: 'date', nullable: true, example: '2026-11-30', description: 'On update, null clears it' },
+};
+const dealBody = (required) => ({
+  required: true,
+  content: json({ type: 'object', required, properties: dealInputProps }),
+});
+const dealRef = { $ref: '#/components/schemas/Deal' };
+const dealNotFound = { description: 'Deal (or its customer) not found, or it belongs to another user' };
+const dealInvalid = { description: 'Invalid input' };
+
 export default {
   openapi: '3.0.3',
   info: { title: 'Customer API', version: '1.0.0', description: 'Registration and login, plus per-user customer CRUD and an AI agent. Customers are only visible to the sales user that owns them: register, log in, then use the Authorize button with the returned token. Roles: sales (default) and admin; the admin logs in at /auth/admin/login and sees the users dashboard at /admin/users.' },
-  tags: [{ name: 'Auth' }, { name: 'Admin' }, { name: 'Customers' }, { name: 'Agent' }],
+  tags: [{ name: 'Auth' }, { name: 'Admin' }, { name: 'Customers' }, { name: 'Deals' }, { name: 'Agent' }],
   components: {
     securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
     schemas: {
@@ -61,6 +75,16 @@ export default {
       Customer: {
         type: 'object',
         properties: { id: { type: 'integer', example: 1 }, ...customerProps, sales_user_id: { type: 'integer', example: 1, description: 'Owning sales user (set from the token)' }, created_at: { type: 'string', format: 'date-time' } },
+      },
+      Deal: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 1 }, customer_id: { type: 'integer', example: 1 },
+          sales_user_id: { type: 'integer', example: 1, description: 'Owning sales user (set from the token)' },
+          ...dealInputProps,
+          customer_name: { type: 'string', description: 'Only in GET /deals' },
+          created_at: { type: 'string', format: 'date-time' }, updated_at: { type: 'string', format: 'date-time' },
+        },
       },
     },
   },
@@ -135,6 +159,25 @@ export default {
       get: { tags: ['Customers'], summary: 'Get a customer', security: secured, parameters: [idParam], responses: { 401: unauthorized, 403: forbidden, 200: { description: 'OK', content: json(ref) }, 404: notFound } },
       put: { tags: ['Customers'], summary: 'Update a customer', security: secured, parameters: [idParam], requestBody: body([]), responses: { 401: unauthorized, 403: forbidden, 200: { description: 'OK', content: json(ref) }, 404: notFound } },
       delete: { tags: ['Customers'], summary: 'Delete a customer', security: secured, parameters: [idParam], responses: { 401: unauthorized, 403: forbidden, 200: { description: 'Deleted' }, 404: notFound } },
+    },
+    '/customers/{id}/deals': {
+      get: { tags: ['Deals'], summary: 'List the deals of one of your customers (newest first)', security: secured, parameters: [idParam], responses: { 401: unauthorized, 403: forbidden, 200: { description: 'OK', content: json({ type: 'array', items: dealRef }) }, 404: notFound } },
+      post: { tags: ['Deals'], summary: 'Create a deal for one of your customers', security: secured, parameters: [idParam], requestBody: dealBody(['title']), responses: { 401: unauthorized, 403: forbidden, 201: { description: 'Created', content: json(dealRef) }, 400: dealInvalid, 404: notFound } },
+    },
+    '/deals': {
+      get: {
+        tags: ['Deals'], summary: 'List all your deals across customers (newest first)', security: secured,
+        parameters: [
+          { name: 'stage', in: 'query', schema: { type: 'string', enum: ['lead', 'qualified', 'proposal', 'won', 'lost'] } },
+          { name: 'customer_id', in: 'query', schema: { type: 'integer' } },
+        ],
+        responses: { 401: unauthorized, 403: forbidden, 400: { description: 'Invalid stage or customer_id' }, 200: { description: 'OK', content: json({ type: 'array', items: dealRef }) } },
+      },
+    },
+    '/deals/{id}': {
+      get: { tags: ['Deals'], summary: 'Get a deal', security: secured, parameters: [idParam], responses: { 401: unauthorized, 403: forbidden, 200: { description: 'OK', content: json(dealRef) }, 404: dealNotFound } },
+      put: { tags: ['Deals'], summary: 'Update a deal (omitted fields are kept)', security: secured, parameters: [idParam], requestBody: dealBody([]), responses: { 401: unauthorized, 403: forbidden, 200: { description: 'OK', content: json(dealRef) }, 400: dealInvalid, 404: dealNotFound } },
+      delete: { tags: ['Deals'], summary: 'Delete a deal', security: secured, parameters: [idParam], responses: { 401: unauthorized, 403: forbidden, 204: { description: 'Deleted' }, 404: dealNotFound } },
     },
     '/agent': {
       post: {

@@ -1,7 +1,16 @@
 import Anthropic from '@anthropic-ai/sdk';
 import * as db from './customers.js';
+import * as deals from './deals.js';
+import { STAGES, validateDeal } from './deals.js';
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
+
+const dealProps = {
+  title: { type: 'string' },
+  amount: { type: 'number', description: 'Amount in rupees' },
+  stage: { type: 'string', enum: STAGES },
+  expected_close_date: { type: 'string', description: 'YYYY-MM-DD' },
+};
 
 const tools = [
   {
@@ -48,6 +57,29 @@ const tools = [
     description: 'Delete a customer by id.',
     input_schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] },
   },
+  {
+    name: 'list_deals',
+    description: 'List deals (sales opportunities), newest first, optionally for one customer and/or one stage.',
+    input_schema: {
+      type: 'object',
+      properties: { customer_id: { type: 'integer' }, stage: { type: 'string', enum: dealProps.stage.enum } },
+    },
+  },
+  {
+    name: 'create_deal',
+    description: 'Create a deal for one of the customers. Amount is in rupees; stage defaults to lead.',
+    input_schema: { type: 'object', properties: { customer_id: { type: 'integer' }, ...dealProps }, required: ['customer_id', 'title'] },
+  },
+  {
+    name: 'update_deal',
+    description: 'Update a deal by id, e.g. move it to another stage. Send expected_close_date null to clear it.',
+    input_schema: { type: 'object', properties: { id: { type: 'integer' }, ...dealProps }, required: ['id'] },
+  },
+  {
+    name: 'delete_deal',
+    description: 'Delete a deal by id.',
+    input_schema: { type: 'object', properties: { id: { type: 'integer' } }, required: ['id'] },
+  },
 ];
 
 // Handlers are bound to the authenticated user; the model never supplies a user id.
@@ -58,11 +90,25 @@ const makeHandlers = (userId) => ({
   add_customer: (a) => db.createCustomer(userId, a),
   update_customer: async ({ id, ...rest }) => (await db.updateCustomer(userId, id, rest)) ?? { error: 'Customer not found' },
   delete_customer: async ({ id }) => (await db.deleteCustomer(userId, id)) ?? { error: 'Customer not found' },
+  list_deals: ({ customer_id, stage }) => deals.listDeals(userId, { stage: stage ?? null, customerId: customer_id ?? null }),
+  create_deal: async ({ customer_id, ...rest }) => {
+    const { value, error } = validateDeal(rest);
+    if (error) return { error };
+    return (await deals.createDeal(userId, customer_id, value)) ?? { error: 'Customer not found' };
+  },
+  update_deal: async ({ id, ...rest }) => {
+    const { value, error } = validateDeal(rest, { partial: true });
+    if (error) return { error };
+    return (await deals.updateDeal(userId, id, value)) ?? { error: 'Deal not found' };
+  },
+  delete_deal: async ({ id }) => ((await deals.deleteDeal(userId, id)) ? { deleted: id } : { error: 'Deal not found' }),
 });
 
 const SYSTEM = `You are a customer-management assistant. Use the provided tools to read and modify
 customer data in the database; never invent data. You can only see and change the customers
-assigned to the logged-in user; treat any other customer as nonexistent. Be concise and format lists clearly.`;
+assigned to the logged-in user; treat any other customer as nonexistent. You also manage deals
+(sales opportunities with a customer): amounts are in rupees and the stages are lead, qualified,
+proposal, won, lost. Be concise and format lists clearly.`;
 
 export async function runAgent(message, history = [], userId) {
   if (!process.env.ANTHROPIC_API_KEY) {
