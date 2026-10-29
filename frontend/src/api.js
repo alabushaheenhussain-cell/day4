@@ -52,5 +52,9 @@ export const api = {
   create: (c) => request('/customers', { method: 'POST', body: JSON.stringify(c) }),
   update: (id, c) => request(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(c) }),
   remove: (id) => request(`/customers/${id}`, { method: 'DELETE' }),
+  listDeals: (customerId) => request(`/customers/${customerId}/deals`),
+  createDeal: (customerId, d) => request(`/customers/${customerId}/deals`, { method: 'POST', body: JSON.stringify(d) }),
+  updateDeal: (id, d) => request(`/deals/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
+  deleteDeal: (id) => request(`/deals/${id}`, { method: 'DELETE' }), // 204, empty body
   chat: (message, history) => request('/agent', { method: 'POST', body: JSON.stringify({ message, history }) }),
 };

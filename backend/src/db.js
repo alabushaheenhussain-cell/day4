@@ -31,6 +31,22 @@ export async function initDb() {
   await pool.query('DELETE FROM customer WHERE sales_user_id IS NULL');
   await pool.query('ALTER TABLE customer ALTER COLUMN sales_user_id SET NOT NULL');
 
+  // Deals (spec 04). Deleting a customer deletes its deals.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS deal (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL REFERENCES customer(id) ON DELETE CASCADE,
+      sales_user_id INTEGER NOT NULL REFERENCES app_user(id),
+      title VARCHAR(200) NOT NULL,
+      amount NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+      stage VARCHAR(20) NOT NULL DEFAULT 'lead'
+        CHECK (stage IN ('lead','qualified','proposal','won','lost')),
+      expected_close_date DATE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+  await pool.query('CREATE INDEX IF NOT EXISTS deal_owner_customer ON deal (sales_user_id, customer_id)');
+
   // Default admin (spec 02). Never overwrites an existing account, so a changed password stays changed.
   const adminEmail = (process.env.ADMIN_EMAIL || 'admin@admin.com').toLowerCase();
   const adminPassword = process.env.ADMIN_PASSWORD || '123456789';
