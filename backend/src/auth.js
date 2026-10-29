@@ -35,3 +35,10 @@ export async function requireAuth(req, res, next) {
     next();
   } catch (e) { next(e); }
 }
+
+// Use after requireAuth. The role comes from the database, so demotion applies immediately.
+const requireRole = (role) => (req, res, next) =>
+  req.user?.role === role ? next() : res.status(403).json({ error: `${role} access required` });
+
+export const requireAdmin = requireRole('admin');
+export const requireSales = requireRole('sales');

@@ -8,6 +8,7 @@ export default function Auth({ onLogin }) {
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const registering = mode === 'register';
+  const admin = mode === 'admin';
 
   const submit = async (e) => {
     e.preventDefault();
@@ -15,7 +16,7 @@ export default function Auth({ onLogin }) {
     setError('');
     try {
       if (registering) await api.register(form);
-      const { token, user } = await api.login({ email: form.email, password: form.password });
+      const { token, user } = await (admin ? api.adminLogin : api.login)({ email: form.email, password: form.password });
       setToken(token);
       onLogin(user);
     } catch (err) { setError(err.message); }
@@ -29,7 +30,7 @@ export default function Auth({ onLogin }) {
           <span className="logo">C</span>
           <h1>Customer Manager</h1>
         </div>
-        <p className="muted">{registering ? 'Create a sales account' : 'Log in to see your customers'}</p>
+        <p className="muted">{registering ? 'Create a sales account' : admin ? 'Admin login' : 'Log in to see your customers'}</p>
         {error && <div className="alert">{error}</div>}
         {registering && (
           <input placeholder="Name" value={form.name} onChange={set('name')} required autoFocus />
@@ -40,12 +41,22 @@ export default function Auth({ onLogin }) {
           value={form.password} onChange={set('password')} minLength={registering ? 8 : undefined} required
         />
         <button className="btn primary" disabled={busy}>{registering ? 'Register' : 'Log in'}</button>
-        <button
-          type="button" className="link"
-          onClick={() => { setMode(registering ? 'login' : 'register'); setError(''); }}
-        >
-          {registering ? 'Already have an account? Log in' : 'No account? Register'}
-        </button>
+        {!admin && (
+          <button
+            type="button" className="link"
+            onClick={() => { setMode(registering ? 'login' : 'register'); setError(''); }}
+          >
+            {registering ? 'Already have an account? Log in' : 'No account? Register'}
+          </button>
+        )}
+        {!registering && (
+          <button
+            type="button" className="link"
+            onClick={() => { setMode(admin ? 'login' : 'admin'); setError(''); }}
+          >
+            {admin ? 'Sales login' : 'Admin login'}
+          </button>
+        )}
       </form>
     </div>
   );

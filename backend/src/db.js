@@ -1,4 +1,5 @@
 import pg from 'pg';
+import bcrypt from 'bcryptjs';
 
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
@@ -29,4 +30,12 @@ export async function initDb() {
   await pool.query('ALTER TABLE customer ADD COLUMN IF NOT EXISTS sales_user_id INTEGER REFERENCES app_user(id)');
   await pool.query('DELETE FROM customer WHERE sales_user_id IS NULL');
   await pool.query('ALTER TABLE customer ALTER COLUMN sales_user_id SET NOT NULL');
+
+  // Default admin (spec 02). Never overwrites an existing account, so a changed password stays changed.
+  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@admin.com').toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD || '123456789';
+  await pool.query(
+    `INSERT INTO app_user (name, email, password_hash, role) VALUES ('Admin', $1, $2, 'admin')
+     ON CONFLICT (email) DO NOTHING`,
+    [adminEmail, await bcrypt.hash(adminPassword, 10)]);
 }

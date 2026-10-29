@@ -13,7 +13,8 @@ const body = (required) => ({
 });
 const notFound = { description: 'Customer not found, or it belongs to another user' };
 const unauthorized = { description: 'Missing, invalid or expired token' };
-const secured = [{ bearerAuth: [] }];
+const forbidden = { description: 'Wrong role for this endpoint (customers and agent are sales-only; /admin is admin-only)' };
+const secured =[{ bearerAuth: [] }];
 const userRef = { $ref: '#/components/schemas/User' };
 const credentials = (required, extra = {}) => ({
   required: true,
@@ -29,8 +30,8 @@ const credentials = (required, extra = {}) => ({
 
 export default {
   openapi: '3.0.3',
-  info: { title: 'Customer API', version: '1.0.0', description: 'Registration and login, plus per-user customer CRUD and an AI agent. Customers are only visible to the sales user that owns them: register, log in, then use the Authorize button with the returned token.' },
-  tags: [{ name: 'Auth' }, { name: 'Customers' }, { name: 'Agent' }],
+  info: { title: 'Customer API', version: '1.0.0', description: 'Registration and login, plus per-user customer CRUD and an AI agent. Customers are only visible to the sales user that owns them: register, log in, then use the Authorize button with the returned token. Roles: sales (default) and admin; the admin logs in at /auth/admin/login and sees the users dashboard at /admin/users.' },
+  tags: [{ name: 'Auth' }, { name: 'Admin' }, { name: 'Customers' }, { name: 'Agent' }],
   components: {
     securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
     schemas: {
@@ -41,6 +42,16 @@ export default {
           email: { type: 'string', example: 'sam@example.com' },
           role: { type: 'string', example: 'sales', description: "Always 'sales' for new registrations" },
           created_at: { type: 'string', format: 'date-time' },
+        },
+      },
+      AdminUserSummary: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer', example: 2 }, name: { type: 'string', example: 'Sam Sales' },
+          email: { type: 'string', example: 'sam@example.com' },
+          role: { type: 'string', enum: ['sales', 'admin'] },
+          created_at: { type: 'string', format: 'date-time' },
+          customer_count: { type: 'integer', example: 5, description: 'Customers owned by this user (0 if none)' },
         },
       },
       AuthResponse: {
@@ -74,27 +85,42 @@ export default {
         },
       },
     },
+    '/auth/admin/login': {
+      post: {
+        tags: ['Auth'], summary: 'Admin login (sales accounts are rejected)', requestBody: credentials(['email', 'password']),
+        responses: {
+          200: { description: 'OK', content: json({ $ref: '#/components/schemas/AuthResponse' }) },
+          401: { description: 'Invalid email or password' },
+        },
+      },
+    },
+    '/admin/users': {
+      get: {
+        tags: ['Admin'], summary: 'List all users with their customer counts', security: secured,
+        responses: { 401: unauthorized, 403: forbidden, 200: { description: 'OK', content: json({ type: 'array', items: { $ref: '#/components/schemas/AdminUserSummary' } }) } },
+      },
+    },
     '/auth/me': {
       get: {
         tags: ['Auth'], summary: 'Current user', security: secured,
-        responses: { 401: unauthorized, 200: { description: 'OK', content: json(userRef) }, 401: unauthorized },
+        responses: { 401: unauthorized, 200: { description: 'OK', content: json(userRef) } },
       },
     },
     '/customers': {
       get: {
         tags: ['Customers'], summary: 'List customers (optional name filter)', security: secured,
         parameters: [{ name: 'name', in: 'query', schema: { type: 'string' } }],
-        responses: { 401: unauthorized, 200: { description: 'OK', content: json({ type: 'array', items: ref }) } },
+        responses: { 401: unauthorized, 403: forbidden, 200: { description: 'OK', content: json({ type: 'array', items: ref }) } },
       },
       post: {
         tags: ['Customers'], summary: 'Create a customer', security: secured, requestBody: body(['name']),
-        responses: { 401: unauthorized, 201: { description: 'Created', content: json(ref) }, 400: { description: 'Invalid input' } },
+        responses: { 401: unauthorized, 403: forbidden, 201: { description: 'Created', content: json(ref) }, 400: { description: 'Invalid input' } },
       },
     },
     '/customers/{id}': {
-      get: { tags: ['Customers'], summary: 'Get a customer', security: secured, parameters: [idParam], responses: { 401: unauthorized, 200: { description: 'OK', content: json(ref) }, 404: notFound } },
-      put: { tags: ['Customers'], summary: 'Update a customer', security: secured, parameters: [idParam], requestBody: body([]), responses: { 401: unauthorized, 200: { description: 'OK', content: json(ref) }, 404: notFound } },
-      delete: { tags: ['Customers'], summary: 'Delete a customer', security: secured, parameters: [idParam], responses: { 401: unauthorized, 200: { description: 'Deleted' }, 404: notFound } },
+      get: { tags: ['Customers'], summary: 'Get a customer', security: secured, parameters: [idParam], responses: { 401: unauthorized, 403: forbidden, 200: { description: 'OK', content: json(ref) }, 404: notFound } },
+      put: { tags: ['Customers'], summary: 'Update a customer', security: secured, parameters: [idParam], requestBody: body([]), responses: { 401: unauthorized, 403: forbidden, 200: { description: 'OK', content: json(ref) }, 404: notFound } },
+      delete: { tags: ['Customers'], summary: 'Delete a customer', security: secured, parameters: [idParam], responses: { 401: unauthorized, 403: forbidden, 200: { description: 'Deleted' }, 404: notFound } },
     },
     '/agent': {
       post: {
@@ -110,7 +136,7 @@ export default {
             },
           }),
         },
-        responses: { 401: unauthorized, 200: { description: 'Agent reply with tool calls made' }, 503: { description: 'API key not configured' } },
+        responses: { 401: unauthorized, 403: forbidden, 200: { description: 'Agent reply with tool calls made' }, 503: { description: 'API key not configured' } },
       },
     },
   },

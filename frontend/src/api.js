@@ -21,7 +21,7 @@ async function request(path, options = {}) {
   });
   const data = await res.json().catch(() => ({}));
   // A 401 on login/register is just bad credentials, not an expired session
-  if (res.status === 401 && !path.startsWith('/auth/login')) { setToken(null); onUnauthorized(); }
+  if (res.status === 401 && !path.endsWith('/login')) { setToken(null); onUnauthorized(); }
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }
@@ -29,7 +29,9 @@ async function request(path, options = {}) {
 export const api = {
   register: (u) => request('/auth/register', { method: 'POST', body: JSON.stringify(u) }),
   login: (u) => request('/auth/login', { method: 'POST', body: JSON.stringify(u) }),
+  adminLogin: (u) => request('/auth/admin/login', { method: 'POST', body: JSON.stringify(u) }),
   me: () => request('/auth/me'),
+  adminUsers: () => request('/admin/users'),
   list: () => request('/customers'),
   create: (c) => request('/customers', { method: 'POST', body: JSON.stringify(c) }),
   update: (id, c) => request(`/customers/${id}`, { method: 'PUT', body: JSON.stringify(c) }),
